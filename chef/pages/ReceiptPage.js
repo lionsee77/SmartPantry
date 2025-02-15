@@ -1,173 +1,122 @@
-// import React, { useState } from "react";
-// import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from "react-native";
-// import { useNavigation } from "@react-navigation/native";
-// import * as ImagePicker from "expo-image-picker";
-
-// export default function ReceiptPage() {
-//   const navigation = useNavigation();
-//   const [image, setImage] = useState(null);
-
-//   // Function to handle camera access
-//   const openCamera = async () => {
-//     // Request camera permissions
-//     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-//     if (status !== "granted") {
-//       Alert.alert("Permission Denied", "Camera access is required to scan receipts.");
-//       return;
-//     }
-
-//     // Launch the camera
-//     const result = await ImagePicker.launchCameraAsync({
-//       allowsEditing: true,
-//       quality: 1,
-//     });
-
-//     if (!result.canceled) {
-//       setImage(result.assets[0].uri); // Store the captured image
-//     }
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       {/* Back Button */}
-//       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-//         <Text style={styles.backText}>← Back</Text>
-//       </TouchableOpacity>
-
-//       <Text style={styles.title}>Receipt Scanner 📜</Text>
-//       <Text style={styles.description}>Capture a receipt using your iPhone camera.</Text>
-
-//       {/* Camera Button */}
-//       <TouchableOpacity onPress={openCamera} style={styles.cameraButton}>
-//         <Text style={styles.cameraText}>Open Camera</Text>
-//       </TouchableOpacity>
-
-//       {/* Display Captured Image */}
-//       {image && (
-//         <Image source={{ uri: image }} style={styles.image} />
-//       )}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     backgroundColor: "#f5f5f5",
-//   },
-//   backButton: {
-//     position: "absolute",
-//     top: 50,
-//     left: 20,
-//   },
-//   backText: {
-//     fontSize: 18,
-//     color: "#6200ea",
-//   },
-//   title: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//     marginBottom: 10,
-//   },
-//   description: {
-//     fontSize: 16,
-//     color: "gray",
-//     textAlign: "center",
-//     paddingHorizontal: 20,
-//     marginBottom: 20,
-//   },
-//   cameraButton: {
-//     backgroundColor: "#6200ea",
-//     paddingVertical: 12,
-//     paddingHorizontal: 20,
-//     borderRadius: 8,
-//     marginTop: 10,
-//   },
-//   cameraText: {
-//     color: "white",
-//     fontSize: 18,
-//   },
-//   image: {
-//     width: 250,
-//     height: 350,
-//     marginTop: 20,
-//     borderRadius: 10,
-//   },
-// });
-
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import { supabase  } from "../services/supabase";
 
 export default function ReceiptPage() {
   const navigation = useNavigation();
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState(null); // ✅ Store Authenticated User ID
 
-  const userId = "your_user_id_here"; // Replace with actual user ID if needed
+  // ✅ Fetch user ID on component mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error fetching user:", error);
+        Alert.alert("Authentication Error", "Unable to retrieve user details.");
+      } else {
+        setUserId(data?.user?.id);
+      }
+    };
 
-  // Function to open the camera and capture an image
+    getUser();
+  }, []);
+
+  // ✅ Open camera and capture image
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Permission Denied", "Camera access is required to scan receipts.");
       return;
     }
-
+  
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       quality: 1,
     });
-
+  
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const capturedImage = result.assets[0].uri;
+      console.log("Captured Image URI:", capturedImage); // ✅ Log before updating state
+      setImage(capturedImage);
+    } else {
+      console.log("Image was cancelled");
     }
   };
+  
+  // ✅ Log updated image state
+  useEffect(() => {
+    if (image) {
+      console.log("Updated Image State:", image); // ✅ Will log after `setImage`
+    }
+  }, [image]);
+  
 
-  // Function to upload receipt to API
+  // ✅ Upload receipt to API
   const uploadReceipt = async () => {
     if (!image) {
+      console.log("No image found");
       Alert.alert("No Image", "Please capture a receipt before uploading.");
       return;
     }
-
+    if (!userId) {
+      console.log("No UserID found");
+      Alert.alert("Authentication Error", "User ID is missing. Please re-login.");
+      return;
+    }
+  
     try {
       setLoading(true);
+  
+      // ✅ Ensure `file://` scheme for local image
+      const fileUri = image.startsWith("file://") ? image : `file://${image}`;
+      const fileName = fileUri.split("/").pop(); // Get filename from path
+      const fileType = fileName.split(".").pop().toLowerCase(); // Extract extension
+  
+      const mimeType = fileType === "jpg" ? "image/jpeg" : `image/${fileType}`;
 
-      // Convert image to Blob format
-      const imageBlob = await FileSystem.uploadAsync(
-        `http://localhost:8000/parse-receipt/?user_id=${userId}`,
-        image,
-        {
-          fieldName: "file",
-          httpMethod: "POST",
-          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Accept: "application/json",
-          },
-        }
-      );
+      // ✅ Ensure correct FormData format
+      const formData = new FormData();
+      formData.append("file", {
+        uri: fileUri,
+        name: fileName,
+        type: mimeType,
+      });
 
-      const response = JSON.parse(imageBlob.body);
+      formData.append("user_id", userId);
+  
+      const apiUrl = "http://172.20.10.2:8000/parse-receipt/";
+      console.log("Uploading to:", apiUrl);
+      console.log("FormData:", formData);
 
-      if (imageBlob.status === 200) {
+      // ✅ Use fetch without manually setting `Content-Type`
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        body: formData,
+      });
+  
+      const result = await response.json();
+  
+      if (response.ok) {
         Alert.alert("Success", "Receipt uploaded successfully!");
       } else {
-        Alert.alert("Upload Failed", response.message || "Something went wrong.");
+        console.error("API Error:", result);
+        Alert.alert("Upload Failed", result.detail ? JSON.stringify(result.detail) : "Something went wrong.");
       }
     } catch (error) {
-      console.error("Error uploading receipt:", error);
-      Alert.alert("Upload Failed", "An error occurred while uploading the receipt.");
+      console.error("Network Error:", error);
+      Alert.alert("Upload Failed", "Network request failed. Check your API connection.");
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <View style={styles.container}>
@@ -254,4 +203,3 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
 });
-
