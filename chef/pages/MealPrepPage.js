@@ -3,87 +3,69 @@ import {
   View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, Animated, Modal, Button 
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { supabase } from "../services/supabase";
 
 export default function MealPrepPage() {
   const navigation = useNavigation();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [mealPlan, setMealPlan] = useState([]);
+  const [userId, setUserId] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState(null);
 
+  // Fetch authenticated user ID
   useEffect(() => {
-    // Placeholder data for meal plan
-    const fetchMealPlan = {
-      "user_id": "fdde9b7f-1442-4c08-af35-e8cbdc60de53",
-      "days": [
-        {
-          "day": 1,
-          "meals": {
-            "breakfast": {
-              "name": "Bread omelette",
-              "ingredients": ["Bread", "Egg", "Salt"],
-              "instructions": "Make and enjoy",
-              "image_url": "https://www.themealdb.com/images/media/meals/hqaejl1695738653.jpg"
-            },
-            "lunch": {
-              "name": "Ribollita",
-              "ingredients": [
-                "Olive Oil", "Onion", "Carrots", "Celery", "Garlic",
-                "Cannellini Beans", "Canned tomatoes", "Water", "Rosemary",
-                "Thyme", "Kale", "Wholegrain Bread", "Red Onions", "Parmesan"
-              ],
-              "instructions": "Put 2 tablespoons of the oil in a large pot over medium heat...",
-              "image_url": "https://www.themealdb.com/images/media/meals/xrrwpx1487347049.jpg"
-            },
-            "dinner": {
-              "name": "French Omelette",
-              "ingredients": [
-                "Eggs", "Butter", "Parmesan", "Tarragon Leaves",
-                "Parsley", "Chives", "Gruyère"
-              ],
-              "instructions": "Get everything ready. Warm a 20cm (measured across the top) non-stick frying pan on a medium heat...",
-              "image_url": "https://www.themealdb.com/images/media/meals/yvpuuy1511797244.jpg"
+    const getUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error fetching user:", error);
+        Alert.alert("Authentication Error", "Unable to retrieve user details.");
+      } else {
+        console.log("User ID:", data?.user?.id);
+        setUserId(data?.user?.id);
+      }
+    };
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchMealPlan = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_meal_history') // Replace with actual table name
+          .select('meal_plan')
+          .eq('user_id', userId) // Replace with actual user_id
+          .single(); // Ensure we fetch a single row instead of an array
+  
+        if (error) throw error;
+  
+        if (data && data.meal_plan) {
+          let mealData = data.meal_plan;
+
+          // Ensure mealData is properly parsed
+          if (typeof mealData === "string") {
+            try {
+              mealData = JSON.parse(mealData);
+            } catch (parseError) {
+              console.error("Error parsing meal plan JSON:", parseError);
+              return;
             }
           }
-        },
-        {
-          "day": 2,
-          "meals": {
-            "breakfast": {
-              "name": "Chicken Quinoa Greek Salad",
-              "ingredients": [
-                "Quinoa", "Butter", "Red Chilli", "Garlic", "Chicken Breast",
-                "Olive Oil", "Black Olives", "Red Onions", "Feta", "Mint", "Lemon"
-              ],
-              "instructions": "Cook the quinoa following the pack instructions, then rinse in cold water and drain thoroughly...",
-              "image_url": "https://www.themealdb.com/images/media/meals/k29viq1585565980.jpg"
-            },
-            "lunch": {
-              "name": "Tuna and Egg Briks",
-              "ingredients": [
-                "Olive Oil", "Spring Onions", "Spinach", "Filo Pastry",
-                "Tuna", "Eggs", "Hotsauce", "Tomatoes", "Cucumber",
-                "Lemon Juice", "Apricot Jam"
-              ],
-              "instructions": "Heat 2 tsp of the oil in a large saucepan and cook the spring onions over a low heat for 3 minutes or until beginning to soften. Add the spinach, cover with a tight-fitting lid and cook for a further 2–3 minutes or until tender and wilted, stirring once or twice. Tip the mixture into a sieve or colander and leave to drain and cool.Using a saucer as a guide, cut out 24 rounds about 12.5 cm (5 in) in diameter from the filo pastry, cutting 6 rounds from each sheet. Stack the filo rounds in a pile, then cover with cling film to prevent them from drying out. When the spinach mixture is cool, squeeze out as much excess liquid as possible, then transfer to a bowl. Add the tuna, eggs, hot pepper sauce, and salt and pepper to taste. Mix well. Preheat the oven to 200°C (400°F, gas mark 6). Take one filo round and very lightly brush with some of the remaining oil. Top with a second round and brush with a little oil, then place a third round on top and brush with oil. Place a heaped tbsp of the filling in the middle of the round, then fold the pastry over to make a half-moon shape. Fold in the edges, twisting them to seal, and place on a non-stick baking sheet. Repeat with the remaining pastry and filling to make 8 briks in all. Lightly brush the briks with the remaining oil. Bake for 12–15 minutes or until the pastry is crisp and golden brown.Meanwhile, combine the tomatoes and cucumber in a bowl and sprinkle with the lemon juice and seasoning to taste. Serve the briks hot with this salad and the chutney.",
-              "image_url": "https://www.themealdb.com/images/media/meals/2dsltq1560461468.jpg"
-            },
-            "dinner": {
-              "name": "French Onion Chicken with Roasted Carrots & Mashed Potatoes",
-              "ingredients": [
-                "Chicken Breasts", "Carrots", "Small Potatoes", "Onion",
-                "Beef Stock", "Mozzarella", "Sour Cream", "Butter",
-                "Sugar", "Vegetable Oil", "Salt", "Pepper"
-              ],
-              "instructions": "Preheat oven to 425 degrees. Wash and dry all produce...",
-              "image_url": "https://www.themealdb.com/images/media/meals/b5ft861583188991.jpg"
-            }
+  
+          if (mealData && mealData.days) {
+            setMealPlan(mealData.days);
+          } else {
+            console.error("Unexpected structure in parsedMealData:", mealData);
           }
         }
-      ]
+      } catch (fetchError) {
+        console.error("Error fetching meal plan:", fetchError);
+      }
     };
-    setMealPlan(fetchMealPlan.days);
-  }, []);
+  
+    fetchMealPlan();
+  }, [supabase]); // Include supabase in dependencies to avoid stale closures
+  
 
   const descriptionOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -140,7 +122,7 @@ export default function MealPrepPage() {
         <Animated.View style={[styles.descriptionContainer, { height: descriptionHeight, opacity: descriptionOpacity }]}>
           <Text style={styles.description}>Plan and manage your meal preparation here.</Text>
         </Animated.View>
-      </Animated.View>
+      </Animated.View>2
 
       {/* Scrollable Meal Plan */}
       <Animated.ScrollView
