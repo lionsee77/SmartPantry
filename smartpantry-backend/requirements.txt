@@ -1,0 +1,9 @@
+supabase
+fastapi
+llama-index
+llama-index-vector-stores-pinecone
+sqlalchemy
+uvicorn
+psycopg2
+aiofiles
+python-multipart
