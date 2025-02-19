@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
-  View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, Animated, Modal, Button 
+  View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, Animated, Modal, Button, Alert 
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../services/supabase";
@@ -13,7 +13,6 @@ export default function MealPrepPage() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState(null);
 
-  // Fetch authenticated user ID
   useEffect(() => {
     const getUser = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -29,20 +28,28 @@ export default function MealPrepPage() {
   }, []);
 
   useEffect(() => {
+    if (!userId) {
+      console.warn("User ID is null, skipping meal plan fetch.");
+      return;
+    }
+
     const fetchMealPlan = async () => {
       try {
+        console.log("Fetching meal plan for user:", userId);
         const { data, error } = await supabase
-          .from('user_meal_history') // Replace with actual table name
-          .select('meal_plan')
-          .eq('user_id', userId) // Replace with actual user_id
-          .single(); // Ensure we fetch a single row instead of an array
-  
-        if (error) throw error;
-  
+          .from("user_meal_history")
+          .select("meal_plan")
+          .eq("user_id", userId)
+          .single();
+
+        if (error) {
+          console.error("Error fetching meal plan:", error);
+          return;
+        }
+
         if (data && data.meal_plan) {
           let mealData = data.meal_plan;
 
-          // Ensure mealData is properly parsed
           if (typeof mealData === "string") {
             try {
               mealData = JSON.parse(mealData);
@@ -51,7 +58,9 @@ export default function MealPrepPage() {
               return;
             }
           }
-  
+
+          console.log("Parsed Meal Plan:", mealData);
+
           if (mealData && mealData.days) {
             setMealPlan(mealData.days);
           } else {
@@ -62,119 +71,116 @@ export default function MealPrepPage() {
         console.error("Error fetching meal plan:", fetchError);
       }
     };
-  
+
     fetchMealPlan();
-  }, [supabase]); // Include supabase in dependencies to avoid stale closures
-  
+  }, [userId]); // ✅ Runs only when `userId` is available
 
-  const descriptionOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0], 
-    extrapolate: "clamp",
-  });
-
-  const descriptionHeight = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [40, 0], 
-    extrapolate: "clamp",
-  });
-
-  const backButtonOpacity = scrollY.interpolate({
-    inputRange: [0, 150], 
-    outputRange: [1, 0], 
-    extrapolate: "clamp",
-  });
-
-  const backButtonTranslateY = scrollY.interpolate({
-    inputRange: [0, 150, 200], 
-    outputRange: [0, -50, -50], 
-    extrapolate: "clamp",
-  });
-
-  const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, 150], 
-    outputRange: [0, -40], 
-    extrapolate: "clamp",
-  });
-
+  // ✅ Handle Meal Click
   const handleMealPress = (meal) => {
     setSelectedMeal(meal);
     setIsModalVisible(true);
   };
 
+  // ✅ Close Modal
   const closeModal = () => {
     setIsModalVisible(false);
     setSelectedMeal(null);
   };
 
+  // ✅ Store Cooked Meal in Supabase
+  const handleCookMeal = async () => {
+    if (!selectedMeal || !userId) {
+      Alert.alert("Error", "No meal selected or user ID missing.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("cooked_meals")
+        .insert([
+          {
+            user_id: userId,
+            meal_name: selectedMeal.name,
+            ingredients: JSON.stringify(selectedMeal.ingredients),
+          },
+        ]);
+
+      if (error) {
+        console.error("Error logging cooked meal:", error);
+        Alert.alert("Error", "Failed to save meal.");
+      } else {
+        Alert.alert("Success", "Meal logged successfully!");
+        closeModal();
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      Alert.alert("Error", "Something went wrong.");
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Animated Back Button */}
-      <Animated.View style={[styles.backButton, { opacity: backButtonOpacity, transform: [{ translateY: backButtonTranslateY }] }]}>
+      <Animated.View style={[styles.backButton, { opacity: 1 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Animated Header */}
-      <Animated.View style={[styles.headerContainer, { transform: [{ translateY: headerTranslateY }] }]}>
+      {/* Header */}
+      <View style={styles.headerContainer}>
         <Text style={styles.title}>Meal Prep Page 🍽️</Text>
-        <Animated.View style={[styles.descriptionContainer, { height: descriptionHeight, opacity: descriptionOpacity }]}>
-          <Text style={styles.description}>Plan and manage your meal preparation here.</Text>
-        </Animated.View>
-      </Animated.View>2
+        <Text style={styles.description}>Plan and manage your meal preparation here.</Text>
+      </View>
 
-      {/* Scrollable Meal Plan */}
-      <Animated.ScrollView
-        contentContainerStyle={styles.mealPlanContainer}
-        showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+      {/* Meal Plan Content */}
+      <ScrollView contentContainerStyle={styles.mealPlanContainer} showsVerticalScrollIndicator={false}>
+        {mealPlan.length === 0 ? (
+          <Text style={styles.noMealText}>No meal plan found.</Text>
+        ) : (
+          mealPlan.map((dayData) => (
+            <View key={dayData.day} style={styles.dayContainer}>
+              <Text style={styles.dayTitle}>Day {dayData.day}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {Object.entries(dayData.meals).map(([mealType, meal]) => (
+                  <TouchableOpacity key={mealType} style={styles.mealBox} onPress={() => handleMealPress(meal)}>
+                    <Image source={{ uri: meal.image_url }} style={styles.mealImage} />
+                    <View style={styles.mealTextContainer}>
+                      <Text style={styles.mealType}>{mealType.charAt(0).toUpperCase() + mealType.slice(1)}</Text>
+                      <Text style={styles.mealTitle}>{meal.name}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ))
         )}
-        scrollEventThrottle={16}
-      >
-        {mealPlan.map((dayData) => (
-          <View key={dayData.day} style={styles.dayContainer}>
-            <Text style={styles.dayTitle}>Day {dayData.day}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {Object.entries(dayData.meals).map(([mealType, meal]) => (
-                <TouchableOpacity 
-                  key={mealType} 
-                  style={styles.mealBox} 
-                  onPress={() => handleMealPress(meal)}
-                >
-                  <Image source={{ uri: meal.image_url }} style={styles.mealImage} />
-                  <View style={styles.mealTextContainer}>
-                    <Text style={styles.mealType}>{mealType.charAt(0).toUpperCase() + mealType.slice(1)}</Text>
-                    <Text style={styles.mealTitle}>{meal.name}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        ))}
-      </Animated.ScrollView>
+      </ScrollView>
 
-      {/* Modal Popup for Meal Recipe */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isModalVisible}
-        onRequestClose={closeModal}
-      >
+      {/* Modal Popup for Meal Details */}
+      <Modal animationType="slide" transparent={true} visible={isModalVisible} onRequestClose={closeModal}>
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
             {selectedMeal && (
               <>
                 <Text style={styles.modalTitle}>{selectedMeal.name}</Text>
                 <Image source={{ uri: selectedMeal.image_url }} style={styles.modalImage} />
-                <Text style={styles.modalSubtitle}>Ingredients:</Text>
-                <Text style={styles.modalText}>{selectedMeal.ingredients.join(", ")}</Text>
-                <Text style={styles.modalSubtitle}>Instructions:</Text>
-                <ScrollView style={styles.modalTextContainer}>
+                
+                <ScrollView style={styles.modalScroll}>
+                  <Text style={styles.modalSubtitle}>Ingredients:</Text>
+                  {selectedMeal.ingredients.map((ingredient, index) => (
+                    <Text key={index} style={styles.ingredientText}>• {ingredient}</Text>
+                  ))}
+
+                  <Text style={styles.modalSubtitle}>Instructions:</Text>
                   <Text style={styles.modalText}>{selectedMeal.instructions}</Text>
                 </ScrollView>
+
+                {/* Cook This Meal Button */}
+                <TouchableOpacity onPress={handleCookMeal} style={styles.cookButton}>
+                  <Text style={styles.cookButtonText}>Cook This Meal 🍳</Text>
+                </TouchableOpacity>
+
                 <Button title="Close" onPress={closeModal} />
               </>
             )}
@@ -185,6 +191,7 @@ export default function MealPrepPage() {
   );
 }
 
+// ✅ Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -195,7 +202,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 50,
     left: 20,
-    zIndex: 10,
   },
   backText: {
     fontSize: 18,
@@ -211,10 +217,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-  },
-  descriptionContainer: {
-    overflow: "hidden",
-    justifyContent: "center",
   },
   description: {
     fontSize: 16,
@@ -235,33 +237,22 @@ const styles = StyleSheet.create({
   dayTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 10, 
+    marginBottom: 10,
   },
   mealBox: {
     flexDirection: "row",
     backgroundColor: "#ffffff",
-    padding: 10,
+    padding: 20,
     marginRight: 10,
     borderRadius: 8,
     alignItems: "center",
     minWidth: 200,
   },
   mealImage: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
     borderRadius: 8,
     marginRight: 10,
-  },
-  mealTextContainer: {
-    flexDirection: "column",
-  },
-  mealType: {
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  mealTitle: {
-    fontSize: 12,
-    color: "#333",
   },
   modalBackground: {
     flex: 1,
@@ -273,30 +264,46 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
-    width: 300,
-    maxHeight: "80%", // Prevents modal from becoming too tall
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
+    width: "90%", // Larger modal width
+    alignSelf: "center",
+    maxHeight: "80%",
   },
   modalImage: {
     width: "100%",
-    height: 150,
+    height: 150, // Bigger image
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 15,
+  },
+  // modalScroll: {
+  //   maxHeight: 250, // More space for content
+  //   marginBottom: 10,
+  // },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 15,
   },
   modalSubtitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
+    marginTop: 10,
+  },
+  ingredientText: {
+    fontSize: 16,
+    marginLeft: 10,
     marginBottom: 5,
   },
-  modalTextContainer: {
-    maxHeight: 200, // Allow scrolling if the content is long
+  cookButton: {
+    backgroundColor: "#6200ea",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
   },
-  modalText: {
-    fontSize: 14,
-    marginBottom: 10,
+  cookButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "white",
   },
 });

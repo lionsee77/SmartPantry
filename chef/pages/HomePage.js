@@ -11,6 +11,7 @@ import ReceiptPage from "./ReceiptPage";
 import MealPrepPage from "./MealPrepPage";
 import InventoryPage from "./InventoryPage";
 import SettingsPage from "./SettingsPage";
+import GroceryPage from "./GroceryPage";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -23,7 +24,7 @@ export default function HomeScreen() {
         onPress={() => navigation.navigate("SettingsPage")}
       >
         <Image
-          source={require("../assets/logo.png")} // Add a profile icon in assets
+          source={require("../assets/logo.png")} 
           style={styles.profileImage}
         />
       </TouchableOpacity>
@@ -57,8 +58,11 @@ export default function HomeScreen() {
           <MaterialIcons name="inventory" size={24} color="white" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("HomeScreen")}>
-          <MaterialIcons name="home" size={24} color="white" />
+        <TouchableOpacity 
+          style={styles.navButton} 
+          onPress={() => navigation.navigate("GroceryPage")}
+        >
+          <MaterialIcons name="local-grocery-store" size={24} color="white" />
         </TouchableOpacity>
       </View>
     </View>

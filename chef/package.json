@@ -10,6 +10,8 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "github:react-native-community/datetimepicker",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/stack": "^7.1.1",
@@ -26,6 +28,7 @@
     "react-native-gesture-handler": "^2.23.1",
     "react-native-heroicons": "^4.0.0",
     "react-native-multiple-select": "^0.5.12",
+    "react-native-network-info": "^5.2.1",
     "react-native-paper": "^5.13.1",
     "react-native-reanimated": "^3.16.7",
     "react-native-safe-area-context": "^5.2.0",

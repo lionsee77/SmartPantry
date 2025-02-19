@@ -13,6 +13,7 @@ import ReceiptPage from "./pages/ReceiptPage"; // ✅ Added
 import MealPrepPage from "./pages/MealPrepPage"; // ✅ Added
 import InventoryPage from "./pages/InventoryPage"; // ✅ Added
 import SettingsPage from "./pages/SettingsPage"; // ✅ Added
+import GroceryPage from "./pages/GroceryPage";
 
 
 
@@ -36,6 +37,7 @@ export default function App() {
           <Stack.Screen name="SettingsPage" component={SettingsPage} /> 
           <Stack.Screen name="ResetPasswordScreen" component={ResetPasswordScreen} />
           <Stack.Screen name="FormPage" component={FormScreen} />
+          <Stack.Screen name="GroceryPage" component={GroceryPage} />
         </Stack.Navigator>
       </NavigationContainer>
     </Provider>

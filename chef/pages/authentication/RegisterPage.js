@@ -16,7 +16,7 @@ export default function RegisterPage() {
   const onSignUpPressed = async () => {
     setLoading(true);
   
-    // Step 1: Create User in Supabase Auth
+    // Create User in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -25,19 +25,18 @@ export default function RegisterPage() {
       },
     });
   
-    // ✅ Check if signup was successful before proceeding
     if (error || !data?.user) {
       Alert.alert("Registration Failed", error?.message || "User creation failed.");
       setLoading(false);
       return;
     }
   
-    const userId = data.user.id; // ✅ Extract user ID safely
+    const userId = data.user.id; 
   
-    // Step 2: Insert into `users` Table
+    // Insert into `users` Table
     const { error: userTableError } = await supabase.from("users").insert([
       {
-        user_id: userId, // ✅ Ensure correct column names
+        user_id: userId, 
         email: email,
         username: name,
       },
@@ -49,7 +48,6 @@ export default function RegisterPage() {
       return;
     }
   
-    // Step 3: Navigate to FormPage after successful user creation
     Alert.alert("Success", "Account created! Enter additional details.");
     navigation.navigate("FormPage", { userId });
   

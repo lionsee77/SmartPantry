@@ -71,14 +71,14 @@ export default function ReceiptPage() {
     try {
       setLoading(true);
   
-      // ✅ Ensure `file://` scheme for local image
+      // Ensure `file://` scheme for local image
       const fileUri = image.startsWith("file://") ? image : `file://${image}`;
       const fileName = fileUri.split("/").pop(); // Get filename from path
       const fileType = fileName.split(".").pop().toLowerCase(); // Extract extension
   
       const mimeType = fileType === "jpg" ? "image/jpeg" : `image/${fileType}`;
 
-      // ✅ Ensure correct FormData format
+      // Ensure correct FormData format
       const formData = new FormData();
       formData.append("file", {
         uri: fileUri,
@@ -87,12 +87,12 @@ export default function ReceiptPage() {
       });
 
       formData.append("user_id", userId);
-  
-      const apiUrl = "http://172.20.10.2:8000/parse-receipt/";
+
+      const apiUrl = "http://192.168.79.16:8000/parse-receipt/"
       console.log("Uploading to:", apiUrl);
       console.log("FormData:", formData);
 
-      // ✅ Use fetch without manually setting `Content-Type`
+      // Use fetch without manually setting `Content-Type`
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
