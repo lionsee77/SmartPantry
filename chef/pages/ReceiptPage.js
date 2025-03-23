@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase  } from "../services/supabase";
 
+
 export default function ReceiptPage() {
   const navigation = useNavigation();
   const [image, setImage] = useState(null);
@@ -87,8 +88,7 @@ export default function ReceiptPage() {
       });
 
       formData.append("user_id", userId);
-
-      const apiUrl = "http://192.168.79.16:8000/parse-receipt/"
+      const apiUrl = "https://smartpantry-backend-ba9d4a05c23f.herokuapp.com/parse-receipt/"
       console.log("Uploading to:", apiUrl);
       console.log("FormData:", formData);
 
